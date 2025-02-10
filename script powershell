@@ -17,7 +17,7 @@ Clear-Content E:\test\regions_short.txt
 #Подключаемся к компам по списку, которые уже находятся в переменной $servers:
 
 foreach($server in $servers){Invoke-Command -ComputerName $server -ScriptBlock {$a={*********************};
-#Получаем имя  пользователя из почты thundebirdи записываем его в $name:
+#Получаем имя  пользователя из почты thundebird и записываем его в $name:
 cd C:\users;
 $m=ls|?{$_.Name -match "manager"}|sort lastwritetime -descending;
 cd $m[0];
