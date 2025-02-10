@@ -1,0 +1,95 @@
+###############################################################################################################################
+#Скрипт выводит в текстовый файл необходимую инфу пользователей с ОС Windows, с клиентом Thunderbird и с программой Гарант-АРМ. 
+###############################################################################################################################
+
+#Задаём пароль для подключения к локальному админу:
+$password = convertto-securestring -string "Fenix1985" -asplaintext -force
+
+#Записываем в переменную имена компов из .csv  файла: 
+$servers= Foreach ($l in (import-csv E:\laptops\all.csv)) { $l.regions}
+
+# Создаём объект с логином и паролем для установки соединения с каждым компом:
+$cred = new-object system.management.automation.pscredential ("$servers\admin", $password)
+
+#Перезаписываем файл:
+Clear-Content E:\test\regions_short.txt
+
+#Подключаемся к компам по списку, которые уже находятся в переменной $servers:
+
+foreach($server in $servers){Invoke-Command -ComputerName $server -ScriptBlock {$a={*********************};
+#Получаем имя  пользователя из почты thundebirdи записываем его в $name:
+cd C:\users;
+$m=ls|?{$_.Name -match "manager"}|sort lastwritetime -descending;
+cd $m[0];
+cd .\appdata\roaming\thunderbird\profiles;
+$list= dir|sort lastwritetime -descending;
+cd $list[0];
+$n=type prefs.js|?{$_ -match "useremail"}|select -first 1;
+$name=$n.Split().split("@")[1].trimstart("""")
+
+#Сама почта пользователя:
+$mail=$name+"@garant.ru"
+
+#Функция транслитерации:
+function Convert-LatinToCyrillic {
+param (
+[string]$text
+)
+$transliterationTable = @{
+'a' = 'а'; 'b' = 'б'; 'v' = 'в'; 'g' = 'г'; 'd' = 'д'; 'e' = 'е'; 'yo' = 'ё'; 'zh' = 'ж';
+'z' = 'з'; 'i' = 'и'; 'k' = 'к';'c'='к'; 'l' = 'л'; 'm' = 'м'; 'n' = 'н'; 'o' = 'о'; 'p' = 'п';
+'r' = 'р'; 's' = 'с'; 't' = 'т'; 'u' = 'у'; 'f' = 'ф'; 'h' = 'х'; 'ts' = 'ц'; 'ch' = 'ч';'ty'='ты';
+'sh' = 'ш'; 'sch' = 'щ'; 'shch'='щ';'kh'='х'; 'iy'='ий'; 'yu' = 'ю'; 'ya' = 'я'; 'y'='ьё'; 'zrazhevskay'='зражевская'
+}
+$text = $text.ToLower()
+#Заменяем более длинные фрагменты
+foreach ($key in $transliterationTable.Keys | Sort-Object { $_.Length } -Descending) {
+$text = $text -replace $key, $transliterationTable[$key]
+}
+$text = $text -replace 'y', 'й'
+return $text
+}
+
+#Меняем с помощью функции(Convert-LatinToCyrillic) латиницу на кирилицу, отсекаем если есть в почте первые символы и нижнее подчёркивание(e.g. "a_ivanov") и записываем в $surn,если нет нижнего подчёркивания, то имя записывается в $nam,а также делаем первую букву заглавной:
+if($name -match "_"){$surname=($name).split("_")[1];$surn=Convert-LatinToCyrillic($surname); $surn.Substring(0, 1).ToUpper() + $surn.Substring(1)} else{$nam=Convert-LatinToCyrillic($name); $nam.Substring(0, 1).ToUpper() + $nam.Substring(1)}
+ 
+#Функция меняет кодировку, чтобы кирилица отображалась никак кракозябры:
+function ConvertTo-Encoding ([string]$From, [string]$To){
+Begin{
+$encFrom = [System.Text.Encoding]::GetEncoding($from)
+$encTo = [System.Text.Encoding]::GetEncoding($to)
+}
+Process{
+$bytes = $encTo.GetBytes($_)
+$bytes = [System.Text.Encoding]::Convert($encFrom, $encTo, $bytes)
+$encTo.GetString($bytes)
+}
+}
+
+#Подаём на вход функции содержимое файла prefs.js, чтобы кирилица отображалась корректно:
+$signe=type prefs.js | ConvertTo-Encoding -From utf-8 -To windows-1251
+
+#Вычленяем из файла  prefs.js подпись в почте thunderbird и ищем совпадения со словами "москва" и "регион", чтобы понять где находится комп:
+switch -regex ($signe){{$_ -match  "москв"}   {$department='moscow'} {$_ -match  "регион"}   {$department='region'}}
+
+#Пишем имя компа: 
+$env:computername;
+
+#В $mngdemo записываем логин АРМа:
+New-PSDrive HKU Registry HKEY_USERS|OUT-NULL;
+cd HKU: ;
+$r=Get-ChildItem -Path .\ -Recurse -Include "Garant-service" -ErrorAction SilentlyContinue;
+cd $r.name;
+$mng=ls; $mngdemo=$mng.getvalue("UserName");
+
+#Выводим в текстовый файл:
+#Имя пользователя($nam/$surname)
+#Имя компа($env:computername)
+#Выводит почту сотрудника($mail)
+#Логин АРМа($mngdemo)
+#Отдел ($department)
+#Разделющие знаки *****($a)
+
+$mail;$mngdemo;$department;$a} -credential $cred -ErrorAction SilentlyContinue | Out-File -PSPath E:\test\regions_short.txt -Encoding unicode -append}
+
+
