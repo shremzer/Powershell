@@ -1,4 +1,7 @@
-﻿function Get-UserIP {
+#########################################################
+########## Hash table for use in VNC.ps1 ################
+ 
+ function Get-UserIP {
     param (
         [string]$region,
         [string]$csvColumn,
