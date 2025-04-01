@@ -1,4 +1,8 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+###################################################################################################################
+###### Creating a form in PowerShell with a drop-down list of users, selecting which, a connection occurs  ########
+###################################################################################################################
+ 
+ Add-Type -AssemblyName System.Windows.Forms
 
 # Create a form
 $form = New-Object System.Windows.Forms.Form
