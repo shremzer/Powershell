@@ -166,4 +166,4 @@ $results6 = Get-User -region "IRBIS" -csvColumn "irbis_and_desktop" -NoCredentia
 $results7 = Get-User -region "AD" -csvColumn "AD" -NoCredential
 
 $allResults = $results1+$results2+$results3+$results4+$results5+$results6+$results7
-$allResults | Sort-Object -Property Name | Select-Object Name, IP, Comp, MngDemo, Mail, Manufacturer, Model,'CPU(GHz)',Disk, 'RAM(Gb)',DDR | Export-Csv \\fs.op8.local\share\1253\User.csv -NoTypeInformation
+$allResults | Sort-Object -Property Name | Select-Object Name, IP, Comp, MngDemo, Mail, Manufacturer, Model,'CPU(GHz)',Disk, 'RAM(Gb)',DDR | Export-Csv \\fs.op8.local\share\1253\Users.csv -NoTypeInformation
