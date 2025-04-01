@@ -1,95 +1,169 @@
-###############################################################################################################################
-#Скрипт выводит в текстовый файл необходимую инфу пользователей с ОС Windows, с клиентом Thunderbird и с программой Гарант-АРМ. 
-###############################################################################################################################
+#############################################################################################
+######   Obtaining the necessary information from computers in the local network   ##########
+#############################################################################################
 
-#Задаём пароль для подключения к локальному админу:
-$password = convertto-securestring -string "Fenix1985" -asplaintext -force
+function Get-User {
+    param (
+        [string]$region,
+        [string]$csvColumn,
+        [string]$password,
+        [switch]$NoCredential
+    )
+#Since desktop versions of Windows have a limit of 20 connections, we divide the list of computers into departments, each with no more than 20, except for those in AD, there can be more than 20.
+    $servers = Import-Csv E:\laptops\all.csv | ForEach-Object { $_.$csvColumn } | Where-Object { $_ }
+    $results = @()
 
-#Записываем в переменную имена компов из .csv  файла: 
-$servers= Foreach ($l in (import-csv E:\laptops\all.csv)) { $l.regions}
+    foreach ($s in $servers) {
+#AD
+        if ($NoCredential) {
+            $result = Invoke-Command -ComputerName $s -ScriptBlock {
+            
+              $name = if ($user = (Get-WmiObject -Class win32_computersystem).UserName) {
+    if ($user -like "*manager*") {
+        cd C:\users
+        $m = ls | ? { $_.Name -match "manager" } | sort lastwritetime -descending
+        cd $m[0]
+        cd .\appdata\roaming\thunderbird\profiles
+        $list = dir | sort lastwritetime -descending
+        cd $list[0]
+        $n = type prefs.js | ? { $_ -match "useremail" } | select -first 1
+        $n.Split().split("@")[1].trimstart("""")
+    } else {
+        $user.TrimStart('OP8\')
+    }
+} else {
+                 cd C:\Users\
+                 $m = Get-ChildItem | Sort-Object LastWriteTime -Descending
+                 $m[0].Name
+             }
 
-# Создаём объект с логином и паролем для установки соединения с каждым компом:
-$cred = new-object system.management.automation.pscredential ("$servers\admin", $password)
 
-#Перезаписываем файл:
-Clear-Content E:\test\regions_short.txt
+####Mail###
 
-#Подключаемся к компам по списку, которые уже находятся в переменной $servers:
 
-foreach($server in $servers){Invoke-Command -ComputerName $server -ScriptBlock {$a={*********************};
-#Получаем имя  пользователя из почты thundebird и записываем его в $name:
-cd C:\users;
-$m=ls|?{$_.Name -match "manager"}|sort lastwritetime -descending;
-cd $m[0];
-cd .\appdata\roaming\thunderbird\profiles;
-$list= dir|sort lastwritetime -descending;
-cd $list[0];
-$n=type prefs.js|?{$_ -match "useremail"}|select -first 1;
-$name=$n.Split().split("@")[1].trimstart("""")
+       
+         cd C:\users\$name\AppData\Roaming\Thunderbird\Profiles\
+         $list = dir | sort lastwritetime -descending
+         cd $list[0]
+         $n = type prefs.js | ? { $_ -match "useremail" } | select -first 1     
+         $mail=$n.Split().split(",").trimstart("""").trimend(""");")[2] 
 
-#Сама почта пользователя:
-$mail=$name+"@garant.ru"
+#Some usernames in AD have a name like manager
+  
+        cd C:\users
+        $m = ls | ? { $_.Name -match "manager" } | sort lastwritetime -descending
+        cd $m[0]
+        cd .\appdata\roaming\thunderbird\profiles
+        $list = dir | sort lastwritetime -descending
+        cd $list[0]
+        $n = type prefs.js | ? { $_ -match "useremail" } | select -first 1
+        $mail=$n.Split().split(",").trimstart("""").trimend(""");")[2] 
 
-#Функция транслитерации:
-function Convert-LatinToCyrillic {
-param (
-[string]$text
-)
-$transliterationTable = @{
-'a' = 'а'; 'b' = 'б'; 'v' = 'в'; 'g' = 'г'; 'd' = 'д'; 'e' = 'е'; 'yo' = 'ё'; 'zh' = 'ж';
-'z' = 'з'; 'i' = 'и'; 'k' = 'к';'c'='к'; 'l' = 'л'; 'm' = 'м'; 'n' = 'н'; 'o' = 'о'; 'p' = 'п';
-'r' = 'р'; 's' = 'с'; 't' = 'т'; 'u' = 'у'; 'f' = 'ф'; 'h' = 'х'; 'ts' = 'ц'; 'ch' = 'ч';'ty'='ты';
-'sh' = 'ш'; 'sch' = 'щ'; 'shch'='щ';'kh'='х'; 'iy'='ий'; 'yu' = 'ю'; 'ya' = 'я'; 'y'='ьё'
-}
-$text = $text.ToLower()
-#Заменяем более длинные фрагменты
-foreach ($key in $transliterationTable.Keys | Sort-Object { $_.Length } -Descending) {
-$text = $text -replace $key, $transliterationTable[$key]
-}
-$text = $text -replace 'y', 'й'
-return $text
-}
 
-#Меняем с помощью функции(Convert-LatinToCyrillic) латиницу на кирилицу, отсекаем если есть в почте первые символы и нижнее подчёркивание(e.g. "a_ivanov") и записываем в $surn,если нет нижнего подчёркивания, то имя записывается в $nam,а также делаем первую букву заглавной:
-if($name -match "_"){$surname=($name).split("_")[1];$surn=Convert-LatinToCyrillic($surname); $surn.Substring(0, 1).ToUpper() + $surn.Substring(1)} else{$nam=Convert-LatinToCyrillic($name); $nam.Substring(0, 1).ToUpper() + $nam.Substring(1)}
+             
+$ip = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -notlike '169.*' -and $_.IPAddress -notlike '192.*'  -and $_.IPAddress -ne '127.0.0.1' }).IPAddress
+    
+#Getting a login from the ARM program
+
+ New-PSDrive HKU Registry HKEY_USERS | Out-Null
+        cd HKU:
+        $r = Get-ChildItem -Path .\ -Recurse -Include "Garant-service" -ErrorAction SilentlyContinue
+        cd $r.name
+        $mng = ls
+        $mngdemo = $mng.GetValue("UserName")
+
+$disk=(Get-PhysicalDisk).MediaType
+$Comp=hostname
+$CPU=(Get-WmiObject -Class Win32_Processor).MaxClockSpeed
+$RAM=[math]::Round((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum / 1GB, 2)
+$DDR=if((gwmi win32_physicalmemory).smbiosmemorytype -eq 24 ) {"DDR3"} else {"DDR4"}   
+$manufacturer= (gwmi win32_computersystem).manufacturer
+        $model=(Get-CimInstance -ClassName Win32_ComputerSystem).Model    
+         [pscustomobject]@{
+            Name        = $name              
+            IP          = [ipaddress]::Parse($ip)
+            Comp        = $Comp
+            MngDemo     = $mngdemo
+            Mail        = $mail
+            Model       = $model
+            Disk        =$disk
+           'CPU(GHz)'   = $CPU
+           'RAM(Gb)'    =$RAM
+            DDR         =$DDR
+        }
+            } -ErrorAction SilentlyContinue
+        } else {
+            $securePassword = ConvertTo-SecureString -String $password -AsPlainText -Force
+            $cred = New-Object System.Management.Automation.PSCredential ("$s\admin", $securePassword)
+            $result = Invoke-Command -ComputerName $s -ScriptBlock {
+                cd C:\users;
+                $m = ls | ? { $_.Name -match "manager" } | sort lastwritetime -descending;
+                cd $m[0];
+                cd .\appdata\roaming\thunderbird\profiles;
+                $list = dir | sort lastwritetime -descending;
+                cd $list[0];
+                $n = type prefs.js | ? { $_ -match "useremail" } | select -first 1;
+                $name = $n.Split().split("@")[1].trimstart("""")
+
+
+###Mail###         
  
-#Функция меняет кодировку, чтобы кирилица отображалась никак кракозябры:
-function ConvertTo-Encoding ([string]$From, [string]$To){
-Begin{
-$encFrom = [System.Text.Encoding]::GetEncoding($from)
-$encTo = [System.Text.Encoding]::GetEncoding($to)
+#Users who are not in AD have the name manager-60xxx
+
+ $mail=$n.Split().split(",").trimstart("""").trimend(""");")[2] 
+
+
+
+#Getting a login from the ARM program
+ New-PSDrive HKU Registry HKEY_USERS | Out-Null
+        cd HKU:
+        $r = Get-ChildItem -Path .\ -Recurse -Include "Garant-service" -ErrorAction SilentlyContinue
+        cd $r.name
+        $mng = ls
+        $mngdemo = $mng.GetValue("UserName")
+$model=(Get-CimInstance -ClassName Win32_ComputerSystem).Model 
+       $mail=$name+"@garant.ru"
+$disk=(Get-PhysicalDisk).MediaType
+$manufacturer= (gwmi win32_computersystem).manufacturer 
+$CPU=(Get-WmiObject -Class Win32_Processor).MaxClockSpeed
+$RAM=[math]::Round((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum / 1GB, 2)
+$DDR=if((gwmi win32_physicalmemory).smbiosmemorytype -eq 24 ) {"DDR3"} else {"DDR4"} 
+$Comp=hostname
+$ip = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.IPAddress -notlike '169.*' -and $_.IPAddress -notlike '192.*'  -and $_.IPAddress -ne '127.0.0.1' }).IPAddress
+              [pscustomobject]@{
+            Name        = $name              
+            IP          = [ipaddress]::Parse($ip)
+            Comp        = $Comp
+            MngDemo     = $mngdemo
+            Mail        = $mail
+            Model       = $model
+            Disk        = $disk
+           'CPU(GHz)'   = $CPU
+           'RAM(Gb)'    = $RAM
+            DDR         = $DDR
+        }
+            } -Credential $cred -ErrorAction SilentlyContinue
+        }
+
+        if ($result) {
+        $results += $result
+    }
+    }
+
+    return $results
 }
-Process{
-$bytes = $encTo.GetBytes($_)
-$bytes = [System.Text.Encoding]::Convert($encFrom, $encTo, $bytes)
-$encTo.GetString($bytes)
-}
-}
 
-#Подаём на вход функции содержимое файла prefs.js, чтобы кирилица отображалась корректно:
-$signe=type prefs.js | ConvertTo-Encoding -From utf-8 -To windows-1251
+# Define the password
+$password = "Fenix1985"
 
-#Вычленяем из файла  prefs.js подпись в почте thunderbird и ищем совпадения со словами "москва" и "регион", чтобы понять где находится комп:
-switch -regex ($signe){{$_ -match  "москв"}   {$department='moscow'} {$_ -match  "регион"}   {$department='region'}}
+# Process each region/category
+$results1 = Get-User -region "REGIONS" -csvColumn "regions" -password $password
+$results2 = Get-User -region "MOSCOW" -csvColumn "moscow" -password $password
+$results3 = Get-User -region "TM" -csvColumn "TM" -password $password
+$results4 = Get-User -region "2floor" -csvColumn "Twofloor" -password $password
+$results5 = Get-User -region "Service" -csvColumn "service" -password $password
+$results6 = Get-User -region "IRBIS" -csvColumn "irbis_and_desktop" -NoCredential
+$results7 = Get-User -region "AD" -csvColumn "AD" -NoCredential
 
-#Пишем имя компа: 
-$env:computername;
-
-#В $mngdemo записываем логин АРМа:
-New-PSDrive HKU Registry HKEY_USERS|OUT-NULL;
-cd HKU: ;
-$r=Get-ChildItem -Path .\ -Recurse -Include "Garant-service" -ErrorAction SilentlyContinue;
-cd $r.name;
-$mng=ls; $mngdemo=$mng.getvalue("UserName");
-
-#Выводим в текстовый файл:
-#Имя пользователя($nam/$surname)
-#Имя компа($env:computername)
-#Выводит почту сотрудника($mail)
-#Логин АРМа($mngdemo)
-#Отдел ($department)
-#Разделющие знаки *****($a)
-
-$mail;$mngdemo;$department;$a} -credential $cred -ErrorAction SilentlyContinue | Out-File -PSPath E:\test\regions_short.txt -Encoding unicode -append}
-
-
+$allResults = $results1+$results2+$results3+$results4+$results5+$results6+$results7
+$allResults | Sort-Object -Property Name | Select-Object Name, IP, Comp, MngDemo, Mail, Manufacturer, Model,'CPU(GHz)',Disk, 'RAM(Gb)',DDR | Export-Csv \\fs.op8.local\share\1253\User.csv -NoTypeInformation
