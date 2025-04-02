@@ -33,7 +33,7 @@ $comboBox.Add_SelectedIndexChanged({
 
 # Create a button to connect to VNC
 $button = New-Object System.Windows.Forms.Button
-$button.Location = New-Object System.Drawing.Point(150, 100)
+$button.Location = New-Object System.Drawing.Point(150, 160)
 $button.Size = New-Object System.Drawing.Size(150, 60)
 $button.Text = "CONNECT"
 
@@ -63,7 +63,7 @@ $button.Add_Click({
 
 # Create a button to close the form
 $closeButton = New-Object System.Windows.Forms.Button
-$closeButton.Location = New-Object System.Drawing.Point(100, 250)
+$closeButton.Location = New-Object System.Drawing.Point(100, 300)
 $closeButton.Size = New-Object System.Drawing.Size(260, 30)
 $closeButton.Text = "Close"
 $closeButton.Add_Click({ $form.Close() })
