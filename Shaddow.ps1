@@ -1,0 +1,81 @@
+﻿Add-Type -AssemblyName System.Windows.Forms
+
+# Create a form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "                                          CONNECTION BY SHADDOW-RDP"
+$form.Size = New-Object System.Drawing.Size(500,400)
+
+# Create a ComboBox
+$comboBox = New-Object System.Windows.Forms.ComboBox
+$comboBox.Location = New-Object System.Drawing.Point(90, 20)
+$comboBox.Size = New-Object System.Drawing.Size(260, 20)
+$comboBox.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+
+# Import hash-table
+$table = Import-Clixml -Path "\\fs.op8.local\share\1253\VNC\hash2.cli"
+
+# Add names to the ComboBox
+$table.GetEnumerator() | Sort-Object -Property key  | ForEach-Object {
+    $comboBox.Items.Add($_.Key)
+}
+
+# Script-scoped variable to store the selected item
+$global:selectedItem = $null
+
+# Add an event handler for when an item is selected
+$comboBox.Add_SelectedIndexChanged({
+    $global:selectedItem = $comboBox.SelectedItem
+})
+
+# Create a button to connect by SHADDOW
+$button = New-Object System.Windows.Forms.Button
+$button.Location = New-Object System.Drawing.Point(150, 160)
+$button.Size = New-Object System.Drawing.Size(150, 60)
+$button.Text = "CONNECT"
+
+# Add the button to the form
+$form.Controls.Add($button)
+
+# Add the ComboBox to the form
+$form.Controls.Add($comboBox)
+
+# Add an event handler for the button click
+$button.Add_Click({
+    if (-not [string]::IsNullOrEmpty($global:selectedItem)) {
+        # Find the corresponding IP address or other details from the hash table
+        $selectedEntry = $table[$global:selectedItem]
+        if ($selectedEntry) {
+            $ip = $table.$global:selectedItem  
+          $id=((qwinsta /server:$ip) -split '\s+')[15]
+ mstsc.exe /shadow:$id /v:$ip /noConsentPrompt /control
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("No matching entry found for the selected name.")
+        }
+    } else {
+        [System.Windows.Forms.MessageBox]::Show("Please select an item from the list.")
+    }
+})
+
+
+
+# Create a button to close the form
+$closeButton = New-Object System.Windows.Forms.Button
+$closeButton.Location = New-Object System.Drawing.Point(100, 300)
+$closeButton.Size = New-Object System.Drawing.Size(260, 30)
+$closeButton.Text = "Close"
+$closeButton.Add_Click({ $form.Close() })
+
+# Add the close button to the form
+$form.Controls.Add($closeButton)
+
+# Show the form
+$form.ShowDialog()
+
+$hostname=[System.Net.Dns]::GetHostEntry($table.$global:selectedItem).HostName
+
+
+$hostname=$hostname.Trim()
+
+
+
+
