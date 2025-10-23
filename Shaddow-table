@@ -1,0 +1,102 @@
+function Get-UserIP {
+    param (
+        [string]$region,
+        [string]$csvColumn
+    )
+
+    $servers = Import-Csv E:\laptops\all.csv | ForEach-Object { $_.$csvColumn } | Where-Object { $_ }
+    $results = @{}
+
+    foreach ($s in $servers) {       
+        $result = Invoke-Command -ComputerName $s -ScriptBlock {
+            $name = if ($user = (Get-WmiObject -Class win32_computersystem).UserName) {
+                if ($user -like "*manager*") {
+                    cd C:\users
+                    $m = ls | ? { $_.Name -match "manager" } | sort lastwritetime -descending
+                    cd $m[0]
+                    cd .\appdata\roaming\thunderbird\profiles
+                    $list = dir | sort lastwritetime -descending
+                    cd $list[0]
+                    $n = type prefs.js | ? { $_ -match "useremail" } | select -first 1
+                    $user=$n.Split().split("@")[1].trimstart("""")
+                    $user.TrimStart('OP8\')
+                } else {
+                    $user=$user.TrimStart('OP8\')
+                }
+            } else {
+                cd C:\Users\
+                $m = Get-ChildItem | Sort-Object LastWriteTime -Descending
+                $m[0].Name
+            }
+
+            function Convert-LatinToCyrillic {
+                param ([string]$text)
+                $transliterationTable = @{
+                    'a' = 'а'; 'b' = 'б'; 'v' = 'в'; 'g' = 'г'; 'd' = 'д'; 'e' = 'е'; 'yo' = 'ё'; 'zh' = 'ж';
+                    'z' = 'з'; 'i' = 'и'; 'k' = 'к';'c'='к'; 'l' = 'л'; 'm' = 'м'; 'n' = 'н'; 'o' = 'о'; 'p' = 'п';
+                    'r' = 'р'; 's' = 'с'; 't' = 'т'; 'u' = 'у'; 'f' = 'ф'; 'h' = 'х'; 'ts' = 'ц'; 'ch' = 'ч';'ty'='ты';
+                    'sh' = 'ш'; 'sch' = 'щ';'kh'='х'; 'iy'='ий'; 'yu' = 'ю'; 'ya' = 'я'; 'y'='ьё'; 'zrazhevskay'='зражевская';
+                    'tretyakova'='третьякова'; 'karykhalin'='карыхалин';'shurcovae'='шурцова';'rzavtseva'='ржавцева';
+                    'solovyeva'='соловьева'
+                }
+                $text = $text.ToLower()
+                #Заменяем более длинные фрагменты
+                foreach ($key in $transliterationTable.Keys | Sort-Object { $_.Length } -Descending) {
+                    $text = $text -replace $key, $transliterationTable[$key]
+                }
+                $text = $text -replace 'y', 'й'
+                return $text
+            }
+
+            #Меняем с помощью функции(Convert-LatinToCyrillic) латиницу на кирилицу, отсекаем если есть в почте первые символы и нижнее подчёркивание(e.g. "a_ivanov") и записываем в $surn
+            #если нет нижнего подчёркивания, то имя записывается в $nam,а также делаем первую букву заглавной:
+            if($user -match "_") {
+                $surname=($user).split("_")[1]
+                $surn=Convert-LatinToCyrillic($surname)
+                $surn=$surn.Substring(0, 1).ToUpper() + $surn.Substring(1)
+            } else {
+                $nam=Convert-LatinToCyrillic($user)
+                $nam=$nam.Substring(0, 1).ToUpper() + $nam.Substring(1)
+            }
+
+            $ip = (Get-NetIPAddress | Where-Object { 
+                $_.AddressFamily -eq 'IPv4' -and 
+                $_.IPAddress -notlike '169.*' -and 
+                $_.IPAddress -notlike '192.*' -and 
+                $_.IPAddress -ne '127.0.0.1' 
+            }).IPAddress
+            
+            @{ $(if($nam){$nam}else {$surn}) = "$ip" }
+        } -ErrorAction SilentlyContinue
+
+        if ($result) {
+            foreach ($key in $result.Keys) {
+                $results[$key] = $result[$key]
+            }
+        }
+    }
+
+    return $results
+}
+
+# Process each region/category
+$results1 = Get-UserIP -region "IRBIS" -csvColumn "irbis_and_desktop"
+$results2 = Get-UserIP -region "AD" -csvColumn "AD"
+
+# Merge all results
+$finalResults = @{}
+$allResults = $results1, $results2
+
+foreach ($result in $allResults) {
+    if ($result) {
+        foreach ($key in $result.Keys) {
+            $finalResults[$key] = $result[$key]
+        }
+    }
+}
+
+# Output the final results
+$finalResults
+                    
+Export-Clixml -Path "\\fs.op8.local\share\1253\VNC\hash2.cli" -InputObject $finalResults
+
