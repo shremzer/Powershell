@@ -35,9 +35,7 @@ function Get-UserIP {
                     'a' = 'а'; 'b' = 'б'; 'v' = 'в'; 'g' = 'г'; 'd' = 'д'; 'e' = 'е'; 'yo' = 'ё'; 'zh' = 'ж';
                     'z' = 'з'; 'i' = 'и'; 'k' = 'к';'c'='к'; 'l' = 'л'; 'm' = 'м'; 'n' = 'н'; 'o' = 'о'; 'p' = 'п';
                     'r' = 'р'; 's' = 'с'; 't' = 'т'; 'u' = 'у'; 'f' = 'ф'; 'h' = 'х'; 'ts' = 'ц'; 'ch' = 'ч';'ty'='ты';
-                    'sh' = 'ш'; 'sch' = 'щ';'kh'='х'; 'iy'='ий'; 'yu' = 'ю'; 'ya' = 'я'; 'y'='ьё'; 'zrazhevskay'='зражевская';
-                    'tretyakova'='третьякова'; 'karykhalin'='карыхалин';'shurcovae'='шурцова';'rzavtseva'='ржавцева';
-                    'solovyeva'='соловьева'
+                    'sh' = 'ш'; 'sch' = 'щ';'kh'='х'; 'iy'='ий'; 'yu' = 'ю'; 'ya' = 'я'; 'y'='ьё'
                 }
                 $text = $text.ToLower()
                 #Заменяем более длинные фрагменты
@@ -99,4 +97,5 @@ foreach ($result in $allResults) {
 $finalResults
                     
 Export-Clixml -Path "\\fs.op8.local\share\1253\VNC\hash2.cli" -InputObject $finalResults
+
 
