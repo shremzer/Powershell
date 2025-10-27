@@ -1,0 +1,148 @@
+                           write-host "`t`t`t`t`t`###########################"
+                           write-host "`t`t`t`t`t`УСТАНОВКА ПРИНТЕРА В ОТДЕЛ"
+                           write-host "`t`t`t`t`t`###########################"
+Write-Host ""
+Write-Host ""
+Write-Host ""
+Write-Host ""
+
+Write-Host @"
+ВЫБЕРИТЕ НУЖНЫЙ ОТДЕЛ:
+
+1 Административный
+2 Обслуживание регионы
+3 Москва
+4 Регионы
+5 ТМ
+6 Обучение
+7 Обслуживание москва
+8 IT 
+9 Сопровождение
+10 Test
+"@
+
+$choosendepartment = Read-Host "Введите номер отдела"
+$csvcolumn = switch ($choosendepartment) {
+    1  { "ADM" }
+    2  { "Maintenance_region" }
+    3  { "Moscow" }
+    4  { "REGIONS" }
+    5  { "TM" }
+    6  { "Trainig" }
+    7  { "Service_moscow" }
+    8  { "IT" }
+    9  { "Service_region" }
+    10 { "TEST" }
+    default { 
+        Write-Warning "Неверный выбор,попробуйте ещё раз!"
+        exit
+    }
+}
+
+$servers = Import-Csv E:\departments\departments.csv | ForEach-Object { $_.$csvColumn } | Where-Object { $_ }
+
+$password = convertto-securestring -string "Fenix1985" -asplaintext -force
+$cred = new-object system.management.automation.pscredential ("admin", $password) # Убрал $servers\
+Write-Host ""
+Write-Host ""
+Write-Host ""
+Write-Host @"
+ВЫБЕРИТЕ НУЖНЫЙ ПРИНТЕР:
+
+1 mfu1 kyocera 2235dn
+2 mfu2 kyocera 2235dn
+3 mfu3 kyocera 2235dn
+4 mfu4 kyocera 2235dn
+5 mfu5 kyocera 2235dn
+6 mfu6 2540dn
+7 mfu7 M2135dn 
+8 moscow P2135dn
+9 P2335dn
+10 hp 3005
+11 hp 2055dn
+"@
+
+$choosenprinter = Read-Host
+
+$name = switch ($choosenprinter) {
+    "1" { "MFU1 Kyocera 2235dn" }
+    "2" { "MFU2 Kyocera 2235dn" }
+    "3" { "MFU3 Kyocera 2235dn" }
+    "4" { "MFU4 Kyocera 2235dn" }
+    "5" { "MFU5 Kyocera 2235dn" }
+    "6" { "MFU6 2540dn" }
+    "7" { "MFU7 M2135dn " }
+    "8" { "MFU8 P2135dn " }
+    "9" { "P2335dn" }
+    "10" { "HP 3005" }
+    "11" { "HP 2055dn" }
+    default { 
+        Write-Warning "Неверный выбор принтера!"
+        exit
+    }
+}
+
+# Определяем ScriptBlock один раз для повторного использования
+$printerScriptBlock = {
+    param($choosenprinter, $name)
+    
+    $port = $null
+    $drivername = $null
+    
+    switch -wildcard ($choosenprinter) {
+        "1"  { add-printerport -name "10.212.3.13" -printerhostaddress "10.212.3.13"; $port = "10.212.3.13" }
+        "2"  { add-printerport -name "10.212.3.14" -printerhostaddress "10.212.3.14"; $port = "10.212.3.14" }
+        "3"  { add-printerport -name "10.212.3.180" -printerhostaddress "10.212.3.180"; $port = "10.212.3.180" }
+        "4"  { add-printerport -name "10.212.3.16" -printerhostaddress "10.212.3.16"; $port = "10.212.3.16" }
+        "5"  { add-printerport -name "10.212.3.10" -printerhostaddress "10.212.3.10"; $port = "10.212.3.10" }
+        "6"  { add-printerport -name "10.212.3.196" -printerhostaddress "10.212.3.196"; $port = "10.212.3.196" }
+        "7"  { add-printerport -name "10.212.3.128" -printerhostaddress "10.212.3.128"; $port = "10.212.3.128" }
+        "8"  { add-printerport -name "10.212.3.12" -printerhostaddress "10.212.3.12"; $port = "10.212.3.12" }
+        "9"  { add-printerport -name "10.212.3.15" -printerhostaddress "10.212.3.15"; $port = "10.212.3.15" }
+        "10" { add-printerport -name "10.212.3.151" -printerhostaddress "10.212.3.151"; $port = "10.212.3.151" }
+        "11" { add-printerport -name "10.212.3.20" -printerhostaddress "10.212.3.20"; $port = "10.212.3.20" }
+    }
+
+    switch -wildcard ($choosenprinter) {
+        { $_ -in "1","2","3","4","5" } { pnputil.exe -i -a '\\fs.op8.local\share\1253\kyocera\kxdriver\64bit\xp and newer\*.inf' }
+        "6" { pnputil.exe -i -a '\\fs.op8.local\share\1253\kyocera m2540dn\prndrv\kxdriver\64bit\xp and newer\*.inf' }
+        "7" { pnputil.exe -i -a '\\fs.op8.local\share\1253\kyocera m2540dn\prndrv\kxdriver\64bit\xp and newer\*.inf' }
+        "8" { pnputil.exe -i -a '\\fs.op8.local\share\1253\Kyocera-P2135dn\en\64bit\*.inf' }
+        "9" { pnputil.exe -i -a '\\fs.op8.local\share\1253\kyocera p2335dn\pcldriver\*.inf' }
+        { $_ -eq "10" -or $_ -eq "11" } { pnputil.exe -i -a '\\fs.op8.local\share\1253\hp universal print driver\pcl5-x64-5.5.0.12834\*.inf' }
+    }
+
+    switch -wildcard ($choosenprinter) {
+        { $_ -in "1","2","3","4","5" } { add-printerdriver -name "Kyocera ECOSYS M2235dn"; $drivername = "Kyocera ECOSYS M2235dn" }
+        "6" { add-printerdriver -name "Kyocera ECOSYS M2540dn KX"; $drivername = "Kyocera ECOSYS M2540dn KX" }
+        "7" { add-printerdriver -name "Kyocera ECOSYS M2135dn KX"; $drivername = "Kyocera ECOSYS M2135dn KX" }
+        "8" { add-printerdriver -name "Kyocera ECOSYS P2135dn"; $drivername = "Kyocera ECOSYS P2135dn" }
+        "9" { add-printerdriver -name "Kyocera ECOSYS P2335dn"; $drivername = "Kyocera ECOSYS P2335dn" }
+        { $_ -eq "10" -or $_ -eq "11" } { add-printerdriver -name "HP Universal Printing PCL 5"; $drivername = "HP Universal Printing PCL 5" }
+    }
+
+    if ($port -and $drivername) {
+        Add-Printer -Name $name -DriverName $drivername -PortName $port -ErrorAction Stop
+        $wsnobj = new-object -com wscript.network
+        $wsnobj.setdefaultprinter($name)
+        Write-Host "Принтер $name успешно добавлен на $env:COMPUTERNAME" -ForegroundColor Green
+    } else {
+        Write-Host "Ошибка: не удалось определить порт или драйвер" -ForegroundColor Red
+    }
+}
+
+foreach ($s in $servers) {
+    try {
+        Write-Host "Попытка подключения к $s без учетных данных..." -ForegroundColor Cyan
+        Invoke-Command -ComputerName $s -ScriptBlock $printerScriptBlock -ArgumentList $choosenprinter, $name -ErrorAction Stop
+    }
+    catch {
+        Write-Host "Ошибка при подключении к $s. Попытка с альтернативными учетными данными..." -ForegroundColor Yellow
+        try {
+            Invoke-Command -ComputerName $s -ScriptBlock $printerScriptBlock -ArgumentList $choosenprinter, $name -Credential $cred -ErrorAction Stop
+        }
+        catch {
+            Write-Host "Не удалось подключиться к $s даже с учетными данными: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+}
