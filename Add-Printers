@@ -113,7 +113,7 @@ $printerScriptBlock = {
     }
 
     switch -wildcard ($choosenprinter) {
-        { $_ -in "1","2","3","4","5" } { add-printerdriver -name "Kyocera ECOSYS M2235dn"; $drivername = "Kyocera ECOSYS M2235dn" }
+        [1-5] { add-printerdriver -name "Kyocera ECOSYS M2235dn"; $drivername = "Kyocera ECOSYS M2235dn" }
         "6" { add-printerdriver -name "Kyocera ECOSYS M2540dn KX"; $drivername = "Kyocera ECOSYS M2540dn KX" }
         "7" { add-printerdriver -name "Kyocera ECOSYS M2135dn KX"; $drivername = "Kyocera ECOSYS M2135dn KX" }
         "8" { add-printerdriver -name "Kyocera ECOSYS P2135dn"; $drivername = "Kyocera ECOSYS P2135dn" }
